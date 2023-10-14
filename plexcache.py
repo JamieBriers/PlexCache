@@ -412,6 +412,7 @@ try:
     valid_sections = settings_data['valid_sections']
     days_to_monitor = settings_data['days_to_monitor']
     users_toggle = settings_data['users_toggle']
+    user_whitelist = settings_data['user_whitelist']      
 
     # Checking and assigning 'skip_ondeck' and 'skip_watchlist' values
     skip_ondeck = settings_data.get('skip_ondeck')
@@ -498,6 +499,11 @@ except Exception as e:
     logging.critical(f"Error connecting to the Plex server: {e}")
     exit(f"Error connecting to the Plex server: {e}")
 
+#check whitelist
+plex_users = plex.myPlexAccount().users()
+if user_whitelist is not None: 
+    plex_users = [user for user in plex_users if (user is not None) and (user.title) in user_whitelist]
+
 # Check if any active session
 sessions = plex.sessions()  # Get the list of active sessions
 if sessions:  # Check if there are any active sessions
@@ -546,7 +552,7 @@ def fetch_on_deck_media_main(plex, valid_sections, days_to_monitor, number_episo
         users_to_fetch = [None]  # Start with main user (None)
 
         if users_toggle:
-            users_to_fetch += plex.myPlexAccount().users()
+            users_to_fetch += plex_users
             # Filter out the users present in skip_ondeck
             users_to_fetch = [user for user in users_to_fetch if (user is None) or (user.get_token(plex.machineIdentifier) not in skip_ondeck)]
 
@@ -711,7 +717,7 @@ def fetch_watchlist_media(plex, valid_sections, watchlist_episodes, users_toggle
 
     users_to_fetch = [None]  # Start with main user (None)
     if users_toggle:
-        users_to_fetch += plex.myPlexAccount().users()
+        users_to_fetch += plex_users
 
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(fetch_user_watchlist, user) for user in users_to_fetch}
@@ -796,7 +802,7 @@ def get_watched_media(plex, valid_sections, last_updated, users_toggle):
         futures = [executor.submit(fetch_user_watched_media, plex, main_username)]
         
         if users_toggle:
-            for user in plex.myPlexAccount().users():
+            for user in plex_users:
                 username = user.title
                 user_token = user.get_token(plex.machineIdentifier)
                 user_plex = PlexServer(PLEX_URL, user_token)
